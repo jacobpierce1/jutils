@@ -27,6 +27,7 @@ class meas( object ):
 
             self.x = x
             self.y = y
+            self.shape = x.shape 
             return None
         
 
@@ -71,14 +72,12 @@ class meas( object ):
         # set instance vars and return
         self.x = x
         self.dx = dx
+        self.shape = x.shape
+        
         return None                    
 
     
-    @classmethod
-    def empty( cls, tup ):
-        return cls( np.empty( tup ), np.empty( tup ) )
     
-
     
     # construct a new measurement from a list of other measurements.
     @classmethod
@@ -405,8 +404,8 @@ class meas( object ):
     def __delitem__( self, key ):
         raise NotImplemented( 'Have not decided on best functionality here.' )
 
-    def shape( self ):
-        return self.x.shape
+    # def shape( self ):
+    #     return self.x.shape
 
     def size( self ):
         return self.x.size
@@ -446,96 +445,9 @@ class meas( object ):
     def transpose( self ) :
         return meas( self.x.T, self.dx.T ) 
 
-    # sum and mean are overloaded with the class instance methods. the
-    # difference is those methods act on the entries of a single
-    # measurement object, whereas these act on an input list along the
-    # specified axis. both of these return a single measurement with the
-    # same dimensions as the measurements in the input list.  note that
-    # the
-    def sum( measlist, axis=0 ):
-        return _meas_no_checks( np.sum( [ measlist[i].x for i in np.arange(len(measlist)) ],
-                                        axis=axis ),
-                                np.sqrt( np.sum( [ measlist[i].dx ** 2 
-                                                   for i in np.arange( len( measlist ) ) ],
-                                                 axis = axis ) ) )
-
-    # take a list of measurements and report the mean about
-    # specified axis.
-    def mean( measlist, axis=0 ):
-        return _meas_no_checks( np.mean( [ measlist[i].x for i in np.arange(len(measlist)) ],
-                                         axis=axis ),
-                                np.sqrt( np.sum( [ measlist[i].dx
-                                                   for i in np.arange( len( measlist ) ) ],
-                                                 axis = axis ) ) )
-
-    # only defined for 1D and 2D matrices.
-    def dot( x, y ):
-
-        ndim = x.x.ndim
-
-        # general case of 2x2 matrices.
-        if ndim == 2:
-            xshape = x.x.shape
-            yshape = y.x.shape
-
-            # value is easy to get.
-            val = np.dot( x.x, y.x )
-
-            # compute the uncertainty
-            delta = np.empty( (xshape[0], yshape[1] ) )
-
-            for i in range( xshape[0] ):
-                for j in range( yshape[1] ):
-                    delta[i,j] = np.sqrt( np.sum( ( x.x[ i,: ] * y.dx[ :,j ] ) ** 2 )  + 
-                                          np.sum( ( x.dx[ i,: ] * y.x[ :,j] ) ** 2 )  )
-
-            return meas( val, delta )
 
 
-        # same thing but easier here.
-        elif ndim == 1:
-
-            val = np.dot( x.x, y.x )
-            size = len( x.x )
-            delta =  np.sqrt( np.sum( ( x.x * y.dx ) ** 2 )  + 
-                              np.sum( ( x.dx * y.x ) ** 2 )  )
-
-            return meas( val, delta )
-
-        # scalar case
-        elif ndim == 0:
-            return x * y
-
-        else:
-            raise NotImplemented( 'meas.dot not implemented for 2 or greater dimensions.' )
-
-
-
-
-
-    # concatenate the current measurement to another
-    # measurement. since all measurements are constructed with the
-    # right shape, we don't have to do a check on the shapes of these
-    # things.  todo: determine the most efficient way to implement this.
-
-    def append( x, y ):
-
-        retx = np.append( x.x, y.x )
-        retdx = np.append( x.dx, y.dx )
-
-        return _meas_no_checks( retx, retdx )
-
-
-
-    # overload abs. x.dx is already positive.
-    def abs( x ):
-        return _meas_no_checks( np.abs( x.x ), x.dx )
-
-
-    def isnan( x ):
-        return np.isnan( x.x )
-
-
+    
     
 #########################################
 #### FAST ALLOC SUBCLASS ################
@@ -550,16 +462,17 @@ class _meas_no_checks( meas ):
 
     def __init__( self, x, dx ):
 
-        # print( 'called' ) 
-
         if np.isscalar(x):
             self.x = x
             self.dx = dx
+            self.shape = None 
             return None
 
         else:            
-            self.x = np.asarray( x )
+            tmp_x = np.asarray( x )
+            self.x = tmp_x 
             self.dx = np.asarray( dx )
+            self.shape = tmp_x.shape  
             return None
 
 
@@ -584,3 +497,106 @@ def ismeas( x ) :
 
 
 nan = meas( np.nan, np.nan ) 
+
+
+
+
+
+
+# sum and mean are overloaded with the class instance methods. the
+# difference is those methods act on the entries of a single
+# measurement object, whereas these act on an input list along the
+# specified axis. both of these return a single measurement with the
+# same dimensions as the measurements in the input list.  note that
+# the
+def sum( measlist, axis=0 ):
+    return _meas_no_checks( np.sum( [ measlist[i].x for i in np.arange(len(measlist)) ],
+                                    axis=axis ),
+                            np.sqrt( np.sum( [ measlist[i].dx ** 2 
+                                               for i in np.arange( len( measlist ) ) ],
+                                             axis = axis ) ) )
+
+# take a list of measurements and report the mean about
+# specified axis.
+def mean( measlist, axis=0 ):
+    return _meas_no_checks( np.mean( [ measlist[i].x for i in np.arange(len(measlist)) ],
+                                     axis=axis ),
+                            np.sqrt( np.sum( [ measlist[i].dx
+                                               for i in np.arange( len( measlist ) ) ],
+                                             axis = axis ) ) )
+
+# only defined for 1D and 2D matrices.
+def dot( x, y ):
+
+    ndim = x.x.ndim
+
+    # general case of 2x2 matrices.
+    if ndim == 2:
+        xshape = x.x.shape
+        yshape = y.x.shape
+
+        # value is easy to get.
+        val = np.dot( x.x, y.x )
+
+        # compute the uncertainty
+        delta = np.empty( (xshape[0], yshape[1] ) )
+
+        for i in range( xshape[0] ):
+            for j in range( yshape[1] ):
+                delta[i,j] = np.sqrt( np.sum( ( x.x[ i,: ] * y.dx[ :,j ] ) ** 2 )  + 
+                                      np.sum( ( x.dx[ i,: ] * y.x[ :,j] ) ** 2 )  )
+
+        return meas( val, delta )
+
+
+    # same thing but easier here.
+    elif ndim == 1:
+
+        val = np.dot( x.x, y.x )
+        size = len( x.x )
+        delta =  np.sqrt( np.sum( ( x.x * y.dx ) ** 2 )  + 
+                          np.sum( ( x.dx * y.x ) ** 2 )  )
+
+        return meas( val, delta )
+
+    # scalar case
+    elif ndim == 0:
+        return x * y
+
+    else:
+        raise NotImplemented( 'meas.dot not implemented for 2 or greater dimensions.' )
+
+
+
+def empty( tup ):
+    return meas( np.empty( tup ), np.empty( tup ) )
+
+def zeros( tup ) :
+    return meas( np.zeros( tup ), np.zeros( tup ) ) 
+
+
+
+
+
+# concatenate the current measurement to another
+# measurement. since all measurements are constructed with the
+# right shape, we don't have to do a check on the shapes of these
+# things.  todo: determine the most efficient way to implement this.
+
+def append( x, y ):
+
+    retx = np.append( x.x, y.x )
+    retdx = np.append( x.dx, y.dx )
+
+    return _meas_no_checks( retx, retdx )
+
+
+
+# overload abs. x.dx is already positive.
+def abs( x ):
+    return _meas_no_checks( np.abs( x.x ), x.dx )
+
+
+def isnan( x ):
+    return np.isnan( x.x )
+

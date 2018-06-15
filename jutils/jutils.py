@@ -12,7 +12,7 @@ class time_estimator( object ) :
 
     def __init__( self, num_iterations, num_updates ) :
         self.iteration = 0 
-        self.counter = 1
+        self.counter = 0
         self.num_updates = num_updates 
         self.num_iterations = num_iterations
         self.start_time = time.time()
@@ -22,7 +22,7 @@ class time_estimator( object ) :
         self.iteration += 1
 
         if( 1. * self.iteration / self.num_iterations 
-            >= 1. * self.counter / self.num_updates ): 
+            >= 1. * ( self.counter + 1 ) / self.num_updates ): 
 
             current_time = time.time()
             self.counter += 1
